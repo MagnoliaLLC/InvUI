@@ -646,7 +646,7 @@ public abstract class CustomContainerMenu {
                     if (dragSlots.size() == 1) {
                         // handle one slot drags as simple clicks
                         int slot = dragSlots.iterator().nextInt();
-                        getWindowEvents().handleClick(slot, new Click(player, dragMode, -1));
+                        getWindowEvents().handleClick(slot, new Click(player, dragMode, -1, true));
                     } else {
                         getWindowEvents().handleDrag(dragSlots, dragMode);
                     }
