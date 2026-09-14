@@ -47,7 +47,9 @@ public class PacketListener implements Listener {
     }
     
     public void stopDiscard(Player player, Class<? extends Packet<ClientGamePacketListener>> clazz) {
-        getPacketHandler(player.getUniqueId()).discardRules.remove(clazz);
+        var packetHandler = packetHandlers.get(player.getUniqueId());
+        if (packetHandler != null)
+            packetHandler.discardRules.remove(clazz);
     }
     
     public void injectOutgoing(Player player, List<Packet<? super ClientGamePacketListener>> packets) {
@@ -66,7 +68,8 @@ public class PacketListener implements Listener {
     }
     
     public boolean removeRedirect(Player player, Class<? extends Packet<ServerGamePacketListener>> clazz) {
-        return getPacketHandler(player.getUniqueId()).redirections.remove(clazz) != null;
+        var packetHandler = packetHandlers.get(player.getUniqueId());
+        return packetHandler != null && packetHandler.redirections.remove(clazz) != null;
     }
     
     @SuppressWarnings("unchecked")
@@ -75,7 +78,8 @@ public class PacketListener implements Listener {
     }
     
     public boolean stopListening(Player player, Class<? extends Packet<? super ServerGamePacketListener>> clazz) {
-        return getPacketHandler(player.getUniqueId()).listeners.remove(clazz) != null;
+        var packetHandler = packetHandlers.get(player.getUniqueId());
+        return packetHandler != null && packetHandler.listeners.remove(clazz) != null;
     }
     
     private PacketHandler getPacketHandler(UUID uuid) {
@@ -92,12 +96,21 @@ public class PacketListener implements Listener {
     
     @EventHandler(priority = EventPriority.MONITOR)
     private void handleQuit(PlayerQuitEvent event) {
-        packetHandlers.remove(event.getPlayer().getUniqueId());
+        var packetHandler = packetHandlers.get(event.getPlayer().getUniqueId());
+        if (packetHandler != null && packetHandler.player == event.getPlayer())
+            packetHandlers.remove(event.getPlayer().getUniqueId(), packetHandler);
     }
     
     private void injectChannelHandler(Player player) {
-        if (packetHandlers.containsKey(player.getUniqueId()))
-            throw new IllegalStateException("A packet handler is already registered for this player");
+        var existing = packetHandlers.get(player.getUniqueId());
+        if (existing != null) {
+            if (existing.player == player)
+                throw new IllegalStateException("A packet handler is already registered for this player");
+            
+            // the account's previous session is still being torn down; its handler goes with it
+            packetHandlers.remove(player.getUniqueId(), existing);
+            removeChannelHandler(existing.channel);
+        }
         
         var channel = ((CraftPlayer) player).getHandle().connection.connection.channel;
         var packetHandler = new PacketHandler(player, channel);
@@ -113,8 +126,10 @@ public class PacketListener implements Listener {
     
     private void removeChannelHandler(Player player) {
         packetHandlers.remove(player.getUniqueId());
-        var channel = ((CraftPlayer) player).getHandle().connection.connection.channel;
-        
+        removeChannelHandler(((CraftPlayer) player).getHandle().connection.connection.channel);
+    }
+    
+    private void removeChannelHandler(Channel channel) {
         try {
             channel.pipeline().remove(invuiPacketHandlerName);
         } catch (NoSuchElementException ignored) {

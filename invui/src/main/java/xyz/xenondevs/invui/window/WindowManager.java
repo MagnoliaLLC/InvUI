@@ -82,7 +82,7 @@ public final class WindowManager implements Listener {
     private void handleInventoryClose(InventoryCloseEvent event) {
         Player player = (Player) event.getPlayer();
         AbstractWindow<?> window = (AbstractWindow<?>) getOpenWindow(player);
-        if (window != null) {
+        if (window != null && window.getViewer() == player) {
             window.handleClose(event.getReason());
         }
     }
