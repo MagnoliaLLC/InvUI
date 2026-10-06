@@ -118,6 +118,9 @@ public class PacketListener implements Listener {
         try {
             channel.pipeline().addBefore(MC_PACKET_HANDLER_NAME, invuiPacketHandlerName, packetHandler);
         } catch (NoSuchElementException e) {
+            // the connection closed before its join fired (Folia still fires it), and its quit follows
+            if (!channel.isOpen())
+                return;
             // https://github.com/NichtStudioCode/InvUI/pull/119
             InvUI.getInstance().getPlugin().getComponentLogger()
                 .error("[InvUI] Failed to inject packet handler for player {}: {}. InvUI will not work correctly for this player.", player.getName(), e.getMessage());
